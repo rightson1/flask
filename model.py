@@ -1,42 +1,262 @@
-import torch
-import torch.nn as nn
-import torchvision.models as models
-import torchvision.transforms as transforms
-from PIL import Image
-import io
+
+import numpy as np
+import pandas as pd
+
+from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import Normalizer
+
+import warnings
+warnings.filterwarnings('ignore')
+housing =pd.DataFrame(pd.read_csv("house_listingskenya.csv"))
+
+housing.head()
+housing.shape
+housing.info()
+housing.describe()
+housing.isnull().sum()
+housing['price'].fillna(housing['price'].mean(), inplace=True)
+housing.info()
+
+condition = housing['bedrooms'] < 30
+df = housing[condition]
+
+condition2 = df['bathrooms'] < 15
+condition3 = df['parking'] < 20
+condition4 = df['toilets'] < 10
+
+combined_condition = condition2 & condition3 & condition4
+df = df[combined_condition]
 
 
-class Plant_Disease_Model(nn.Module):
-
-    def __init__(self):
-        super().__init__()
-        self.network = models.resnet34(pretrained=True)
-        num_ftrs = self.network.fc.in_features
-        self.network.fc = nn.Linear(num_ftrs, 38)
-
-    def forward(self, xb):
-        out = self.network(xb)
-        return out
+# In[14]:
 
 
-transform = transforms.Compose(
-    [transforms.Resize(size=128),
-     transforms.ToTensor()])
+new_data = pd.DataFrame({'type': ['House'], 'bedrooms': [5],
+                         'category': ['For_Rent'], 'state': ['Kajiado'], 'locality': ['Kitengela'],
+                         'bathrooms': [5], 'toilets': [0], 'furnished': [0], 'serviced': [0], 'shared': [0],
+                         'parking': [0], 'sub_type': ['Unknown'], 'listmonth': [7.0], 'listyear': [2020.0]
+})
 
-num_classes = ['Apple___Apple_scab', 'Apple___Black_rot', 'Apple___Cedar_apple_rust', 'Apple___healthy', 'Blueberry___healthy', 'Cherry_(including_sour)___Powdery_mildew', 'Cherry_(including_sour)___healthy', 'Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot', 'Corn_(maize)___Common_rust_', 'Corn_(maize)___Northern_Leaf_Blight', 'Corn_(maize)___healthy', 'Grape___Black_rot', 'Grape___Esca_(Black_Measles)', 'Grape___Leaf_blight_(Isariopsis_Leaf_Spot)', 'Grape___healthy', 'Orange___Haunglongbing_(Citrus_greening)', 'Peach___Bacterial_spot', 'Peach___healthy',
-               'Pepper,_bell___Bacterial_spot', 'Pepper,_bell___healthy', 'Potato___Early_blight', 'Potato___Late_blight', 'Potato___healthy', 'Raspberry___healthy', 'Soybean___healthy', 'Squash___Powdery_mildew', 'Strawberry___Leaf_scorch', 'Strawberry___healthy', 'Tomato___Bacterial_spot', 'Tomato___Early_blight', 'Tomato___Late_blight', 'Tomato___Leaf_Mold', 'Tomato___Septoria_leaf_spot', 'Tomato___Spider_mites Two-spotted_spider_mite', 'Tomato___Target_Spot', 'Tomato___Tomato_Yellow_Leaf_Curl_Virus', 'Tomato___Tomato_mosaic_virus', 'Tomato___healthy']
+if 'For_Rent' in new_data['category'].values:
+    df = df.loc[df['price'] < 1000000]
+    print("final1")
+else:
+    df = df.loc[df['price'] < 200000000]
+    print("final2")
+
+def preprocess_new_data(type_, bedrooms, category, state, locality, bathrooms, toilets, furnished, serviced, shared, parking, sub_type, listmonth, listyear):
+    new_data = pd.DataFrame({
+        'type': [type_],
+        'bedrooms': [bedrooms],
+        'category': [category],
+        'state': [state],
+        'locality': [locality],
+        'bathrooms': [bathrooms],
+        'toilets': [toilets],
+        'furnished': [furnished],
+        'serviced': [serviced],
+        'shared': [shared],
+        'parking': [parking],
+        'sub_type': [sub_type],
+        'listmonth': [listmonth],
+        'listyear': [listyear]
+    })
+    
+    return new_data
+df.shape
 
 
-model = Plant_Disease_Model()
-model.load_state_dict(torch.load(
-    './Models/plantDisease-resnet34.pth', map_location=torch.device('cpu')))
-model.eval()
+df.isnull().sum()
 
 
-def predict_image(img):
-    img_pil = Image.open(io.BytesIO(img))
-    tensor = transform(img_pil)
-    xb = tensor.unsqueeze(0)
-    yb = model(xb)
-    _, preds = torch.max(yb, dim=1)
-    return num_classes[preds[0].item()]
+# In[18]:
+
+
+del df["id"]
+del df["price_qualifier"]
+del df["sub_locality"]
+
+
+# In[19]:
+
+
+df.shape
+
+
+# In[20]:
+
+
+df['toilets'].fillna(df['toilets'].mean(), inplace=True)
+
+
+# In[21]:
+
+
+df.isnull().sum()
+
+
+# In[22]:
+
+
+df.shape
+
+
+# In[23]:
+
+
+df['sub_type'].fillna('Unknown', inplace=True)
+df['locality'].fillna('Unknown', inplace=True)
+
+
+# In[24]:
+
+
+df.isnull().sum()
+
+
+# In[25]:
+
+
+from datetime import datetime
+df['listdate'] = pd.to_datetime(df['listdate'])
+df['listyear'] = df['listdate'].dt.year.astype(float)
+df['listmonth'] = df['listdate'].dt.month.astype(float)
+
+
+# In[26]:
+
+
+del df["listdate"]
+
+
+# In[27]:
+
+
+df['listyear'].fillna(df['listyear'].mean(), inplace=True)
+df['listmonth'].fillna(df['listmonth'].mean(), inplace=True)
+
+
+# In[28]:
+
+
+label_encoder = LabelEncoder()
+categorical_columns = ['category','sub_type','locality','type','state',]
+
+for column in categorical_columns:
+    df[column] = label_encoder.fit_transform(df[column])
+
+
+# In[29]:
+
+
+condition2= df['category']<2
+condition3= df['type']<3
+condition4= df['shared']<1
+
+
+
+combined_condition= condition2&condition3&condition4
+df= df[combined_condition]
+
+
+import pandas as pd
+y = df['price']
+x = df.drop('price', axis=1)
+
+
+# In[32]:
+
+
+from sklearn.model_selection import train_test_split
+
+x_train,x_test, y_train, y_test = train_test_split(x, y, test_size=0.33, random_state=45)
+
+
+# In[33]:
+
+
+from sklearn.preprocessing import Normalizer
+
+scaler = Normalizer()
+x_train = scaler.fit_transform(x_train)
+x_test = scaler.transform(x_test)
+
+
+label_encoder = LabelEncoder()
+categorical_columns = ['category','sub_type','locality','type','state']
+
+for column in categorical_columns:
+    new_data[column] = label_encoder.fit_transform(new_data[column])
+
+
+# In[36]:
+
+
+
+
+scaler = Normalizer()
+new_data = scaler.fit_transform(new_data)
+
+
+# In[37]:
+
+
+import xgboost as xgb
+from sklearn.metrics import mean_squared_error
+
+
+# In[38]:
+
+
+model = xgb.XGBRegressor(n_estimators=100, learning_rate=0.1, random_state=42)
+model.fit(x_train, y_train)
+
+
+# In[39]:
+
+
+y_pred = model.predict(x_test)
+
+
+# In[40]:
+
+
+mse = mean_squared_error(y_test, y_pred)
+# print("Mean Squared Error:", mse)
+
+
+# In[41]:
+
+
+rmse = np.sqrt(mse)
+
+
+# In[42]:
+
+
+# print(rmse)
+
+
+# In[43]:
+
+
+prediction= model.predict(new_data)
+
+
+# In[44]:
+
+
+print(prediction)
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
